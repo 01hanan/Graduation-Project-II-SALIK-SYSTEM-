@@ -1,6 +1,8 @@
 # Graduation-Project-II-SALIK-SYSTEM- 🐱‍🏍
 An automated system to detect and alert potential road damages and obstacles.
 
+![Pothole Example](pothole_image.jpg)
+
 # Pothole Detection, Tracking, and SMS Alert System 🔔
 
 This Python script implements a system for detecting and tracking potholes in a video stream using the YOLOv8 model and sending SMS alerts with pothole information. It utilizes the Ultralytics YOLO framework for object detection and the imgBB API for hosting images. 
