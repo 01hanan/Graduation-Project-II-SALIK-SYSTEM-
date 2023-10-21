@@ -1,3 +1,4 @@
+import multiprocessing
 import random
 import torch
 import numpy as np
@@ -34,22 +35,26 @@ def send_sms(cam, image_file, className, conf):
         "image": image_data
     }
 
-    # Send the POST request to upload the image
-    response = requests.post(url, data=payload)
+    try:
+        # Make a POST request to upload the image on imgBB
+        response = requests.post(url, data=payload)
+        # Raise an exception for bad responses (4xx and 5xx status codes)
+        response.raise_for_status()
 
-    # Parse the JSON response
-    data = response.json()
+        # Parse the JSON response
+        data = response.json()
 
-    # Check if the upload was successful
-    if response.status_code == 200 and data['success']:
+        # Check if the request was successful
+        if response.status_code == 200 and data['success']:
 
-        # Extract the URL of the uploaded image from the response data
-        image_url = data['data']['url']
-        print(f"Image uploaded successfully. URL: {image_url}")
+            # Get the URL of the hosted image
+            image_url = data['data']['url']
+            print(f"Image uploaded successfully. URL: {image_url}")
 
-    else:
-        # Handle the case where the image upload failed
-        print("Failed to upload the image.")
+    except requests.exceptions.RequestException as e:
+
+        print(f"Error uploading image: {e}")
+        return  # Exit the function on any request exception
 
     # Define the SMS Gateway URL for sending SMS
     sms_gateway_url = "http://REST.GATEWAY.SA/api/SendSMS"
@@ -61,13 +66,23 @@ def send_sms(cam, image_file, className, conf):
         "sms_type": "T",  # define SMS type ('T' for text)
         "encoding": "T",  # define encoding type ('T' for text)
         "sender_id": "Gateway.sa",  # Sender ID
-        "phonenumber": "966507567242",  # Recipient's phone number
+        "phonenumber": "966558688926",  # Recipient's phone number
         # Specifies the content of the SMS message
         "textmessage": f"A {className} has been detected at {cam}\nWith accuracy {conf}.\nImage File URL {image_url}"
     }
 
-    # Send the SMS using a POST request to the SMS Gateway
-    response = requests.post(sms_gateway_url, params=params)
+    try:
+        # Send the SMS using a POST request to the SMS Gateway
+        response = requests.post(sms_gateway_url, params=params)
+        # Raise an exception for bad responses (4xx and 5xx status codes)
+        response.raise_for_status()
+        print("SMS sent successfully.")
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error sending SMS: {e}")
+        print("SMS not sent.")
+
+        send_sms(cam, image_file, className, conf)
 
 
 # Step 2: Main function to run the pothole detection, tracking and SMS alert system
@@ -95,7 +110,7 @@ def main():
     classNames = ["Pothole"]
 
     # Open a video capture stream
-    cap = cv2.VideoCapture(2)
+    cap = cv2.VideoCapture(0)
 
     # Check if a GPU is available and set the device accordingly, else use the CPU
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -115,6 +130,10 @@ def main():
     while True:
         # Read a frame from the video capture
         ret, frame = cap.read()
+        if not ret:
+            print("Error reading from the camera!")
+            break
+
         results = model.predict(frame)
 
         for result in results:
@@ -148,7 +167,7 @@ def main():
                     # Append the details of the detected pothole to the detections list
                     detections.append([x1, y1, x2, y2, score])
 
-             # update the object tracker with the detected pothole.
+            # update the object tracker with the detected pothole.
             tracker.update(frame, detections)
 
             for track in tracker.tracks:
@@ -204,7 +223,8 @@ def main():
                     fontScale=0.5,  # font size
                     color=text_color,
                     thickness=1,
-                    lineType=cv2.LINE_AA,  # line type (AA for anti-aliased )
+                    # line type (AA for anti-aliased )
+                    lineType=cv2.LINE_AA,
                     bottomLeftOrigin=False  # to indicate that the origin of the text is at the top left
                 )
 
@@ -231,9 +251,18 @@ def main():
                         image_filename = "pothole_image.jpg"
                         cv2.imwrite(image_filename, frame)
 
+                        # Use multiprocessing to send SMS in parallel
                         # Send an SMS alert with pothole information to the desired party
-                        send_sms(google_maps_link, image_filename,
-                                 class_name, confidence)
+                        sms_process = multiprocessing.Process(
+                            target=send_sms,
+                            args=(google_maps_link, image_filename,
+                                  class_name, confidence)
+                        )
+                        sms_process.start()
+
+                        # Send an SMS alert with pothole information to the desired party
+                        # send_sms(google_maps_link, image_filename,
+                        #          class_name, confidence)
 
             # Display the frame with bounding boxes and text
             cv2.imshow("YOLOv8 Detection", frame)
