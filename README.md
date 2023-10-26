@@ -36,6 +36,7 @@ Replace the existing path with the new path. Ensure the new path points to where
 
 ```markdown
 model_path = "/new/path/to/your/model/model-name.pt"
+```
 
 ## Dependencies
 - Ultralytics YOLO
