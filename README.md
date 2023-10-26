@@ -31,6 +31,12 @@ This Python script implements a system for detecting and tracking potholes in a 
 - Set your SMS Gateway URL, API ID, API password, and other SMS parameters.
 - Update class_names to match the classes recognized by your YOLO model.
 
+3. Update the Model Path:
+Replace the existing path with the new path. Ensure the new path points to where your model file is stored. For example:
+
+```markdown
+model_path = "/new/path/to/your/model/model-name.pt"
+
 ## Dependencies
 - Ultralytics YOLO
 - imgBB API
